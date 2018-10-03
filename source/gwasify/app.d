@@ -1,23 +1,50 @@
 module gwasify.app;
 
+import core.stdc.stdlib : exit;
+
+import std.conv;
 import std.getopt;
+import std.process;
 import std.stdio;
 import std.string;
-import core.stdc.stdlib : exit;
-import std.conv;
+import std.zlib;
 
 void main(string[] args){
   string file_name;
-  string pheno_cols, covar_cols;
-
   size_t mode = 1;
+  string pheno_cols, covar_cols;
+  string generator;
+
   getopt(args,
-    "file"    , &file_name,
-    "mode"  , &mode,
+    "file"      , &file_name,
+    "mode"      , &mode,
     "pheno_cols", &pheno_cols,
-    "covar_cols", &covar_cols
+    "covar_cols", &covar_cols,
+    "gen"       , &generator
   );
 
+  if(generator == "covar"){
+    pheno_covar_generator(file_name, mode, pheno_cols, covar_cols);
+  }
+  else if(generator == "snps"){
+    annotation_generator(file_name);
+  }
+}
+
+void annotation_generator(string file_name){
+  auto pipe = pipeShell("gunzip -c " ~ file_name);
+  File input = pipe.stdout;
+
+  File anno_file =  File("snps.txt", "w");
+  foreach(line; input.byLine){
+    auto chr = to!string(line).split(",")[0];
+    auto anno = chr.split(":");
+    anno_file.writeln(anno[0], "\t", anno[1], "\t", anno[2], anno[3]);
+  }
+
+}
+
+void pheno_covar_generator(string file_name, size_t mode, string pheno_cols, string covar_cols){
   auto pheno_arr = pheno_cols.split(",");
   auto covar_arr = covar_cols.split(",");
 
@@ -55,4 +82,3 @@ void main(string[] args){
     covar_file.write("\n");
   }
 }
-
