@@ -32,6 +32,9 @@ void main(string[] args){
   else if(generator == "details"){
     chr_details(file_name);
   }
+  else{
+    readfile_bgen(file_name);
+  }
 }
 
 void annotation_generator(string file_name){
@@ -67,7 +70,7 @@ void chr_details(string file_name){
     //writeln(chr);
     auto chr_name = chr[0];
     auto positions = chr[1].split(":");
-    chr_variants.writeln(chr_name, "\t", positions[0], "\t", positions[1]);
+    chr_variants.writeln(line, "\t", positions[0], "\t", positions[1]);
   }
 }
 
@@ -108,4 +111,72 @@ void pheno_covar_generator(string file_name, size_t mode, string pheno_cols, str
     }
     covar_file.write("\n");
   }
+}
+
+
+void readfile_bgen(const string file_bgen) {
+  writeln("entered ReadFile_bgen");
+  
+  File infile = File(file_bgen);
+
+  writeln("ALL SET!");
+
+  //The first four bytes
+  uint bgen_snp_block_offset = infile.rawRead(new uint[1])[0];
+
+  //The header block
+  uint bgen_header_length = infile.rawRead(new uint[1])[0];
+  writeln("bgen_header_length => ", bgen_header_length);
+  assert(bgen_header_length <= bgen_snp_block_offset);
+  bgen_snp_block_offset -= 4;
+  uint bgen_nsnps = infile.rawRead(new uint[1])[0];
+  writeln("No. of variant = > ", bgen_header_length);
+  bgen_snp_block_offset -= 4;
+  uint bgen_nsamples = infile.rawRead(new uint[1])[0];
+  writeln("No. of samples = > ", bgen_nsamples);
+  bgen_snp_block_offset-=4;
+  char[] magic_chars = infile.rawRead(new char[4]);
+  writeln(magic_chars);
+
+  size_t ignore = bgen_header_length - 20; // check
+  if(ignore != 0)
+    infile.rawRead(new char[ignore]);
+  bgen_snp_block_offset -= ignore;
+
+  //BitArray bgen_flags = BitArray(32, cast(ulong*)infile.rawRead(new char[4]));
+  uint bgen_flags = infile.rawRead(new uint[1])[0];
+  bgen_snp_block_offset -= 4;
+
+  uint CompressedSNPBlocks = (bgen_flags) & 3;
+  writeln("CompressedSNPBlocks => ", CompressedSNPBlocks);
+  uint layout = (bgen_flags & (15 << 2)) >> 2;
+  writeln("layout =>", layout);
+  uint sample_ids_presence = (bgen_flags & (1 << 31)) >> 31;
+  writeln("sample_ids_presence => ", sample_ids_presence);
+  uint LongIds = (bgen_flags) & 0x4;
+  //writeln(LongIds);
+
+  if (layout == 0) {
+    writeln("This value is not supported");
+    exit(0);
+  }
+
+  //infile.rawRead(new char[bgen_snp_block_offset]);
+  writeln(bgen_snp_block_offset);
+
+  // sample identifier block
+
+  uint bgen_LSI =  infile.rawRead(new uint[1])[0];
+  bgen_snp_block_offset -= 4;
+  writeln("bgen_LSI => ", bgen_LSI);
+  uint N = infile.rawRead(new uint[1])[0];
+  bgen_snp_block_offset -= bgen_LSI;
+  writeln("N => ", N);
+  for(uint i = 0; i <N; i++){
+    ushort bgen_LS1_length = infile.rawRead(new ushort[1])[0];
+    //writeln("bgen_LS1_length => ", bgen_LS1_length);
+    string bgen_LS1 = cast(string)infile.rawRead(new char[bgen_LS1_length]);
+    writeln("bgen_LS1 =>", bgen_LS1);
+  }
+
 }
